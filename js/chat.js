@@ -3,6 +3,10 @@
  */
 const PROFILE_KEY = 'jft_profile';
 
+function getApiKey() {
+    return localStorage.getItem('jft_api_key') || '';
+}
+
 function buildSystemPrompt() {
     const mastery = loadMastery();
     const weakTopics = ALL_KNOWLEDGE_FLAT
