@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>练习生成 — 积分向导</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <nav class="top-nav">
+        <div class="nav-brand">📐 积分向导</div>
+        <div class="nav-links">
+            <a href="chat.html" class="nav-link">💬 AI交流区</a>
+            <a href="mindmap.html" class="nav-link">🧠 思维导图</a>
+            <a href="practice.html" class="nav-link" style="background:var(--primary-light);color:var(--primary)">📝 练习生成</a>
+        </div>
+        <button id="settingsBtn3" class="icon-btn" title="设置">⚙️</button>
+    </nav>
+
+    <div class="practice-layout">
+        <!-- 左侧筛选 -->
+        <div class="practice-filter">
+            <h3>🎯 选题标签</h3>
+            <p style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:12px;">选择想练习的知识点，AI会生成相应题目</p>
+            
+            <div class="tag-group">
+                <h4>📐 二重积分</h4>
+                <span class="tag-option" data-tag="double-rect">直角坐标</span>
+                <span class="tag-option" data-tag="double-polar">极坐标</span>
+                <span class="tag-option" data-tag="double-iter-swap">交换次序</span>
+                <span class="tag-option" data-tag="double-area">求面积</span>
+            </div>
+            
+            <div class="tag-group">
+                <h4>📦 三重积分</h4>
+                <span class="tag-option" data-tag="triple-rect">直角坐标</span>
+                <span class="tag-option" data-tag="triple-cyl">柱面坐标</span>
+                <span class="tag-option" data-tag="triple-sph">球面坐标</span>
+            </div>
+            
+            <div class="tag-group">
+                <h4>〰️ 曲线积分</h4>
+                <span class="tag-option" data-tag="curve-first">第一类</span>
+                <span class="tag-option" data-tag="curve-second">第二类</span>
+                <span class="tag-option" data-tag="green">格林公式</span>
+            </div>
+            
+            <div class="tag-group">
+                <h4>🔲 曲面积分</h4>
+                <span class="tag-option" data-tag="surface-first">第一类</span>
+                <span class="tag-option" data-tag="surface-second">第二类</span>
+                <span class="tag-option" data-tag="gauss">高斯公式</span>
+                <span class="tag-option" data-tag="stokes">斯托克斯</span>
+            </div>
+            
+            <div class="tag-group">
+                <h4>🎲 难度</h4>
+                <span class="tag-option" data-tag="diff-easy">⭐ 基础</span>
+                <span class="tag-option" data-tag="diff-mid">⭐⭐ 中等</span>
+                <span class="tag-option" data-tag="diff-hard">⭐⭐⭐ 困难</span>
+            </div>
+
+            <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">
+                <button id="generateBtn" class="btn-primary" style="flex:1;">生成练习</button>
+                <button id="clearTagsBtn" class="btn-secondary">清空</button>
+            </div>
+            <p id="generateStatus" style="font-size:0.8rem;color:var(--text-secondary);margin-top:8px;"></p>
+
+            <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
+                <h4>🤖 智能推荐</h4>
+                <p style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:8px;">
+                    根据你的学习档案，AI自动推荐练习方向
+                </p>
+                <button id="smartGenBtn" class="btn-secondary" style="width:100%;">基于薄弱点生成</button>
+            </div>
+        </div>
+
+        <!-- 右侧题目展示 -->
+        <div class="practice-main" id="practiceMain">
+            <div class="empty-state" id="emptyState">
+                <div class="emoji">📝</div>
+                <p>选择标签后点击"生成练习"，AI会为你出题</p>
+                <p style="font-size:0.85rem;color:var(--text-secondary);margin-top:8px;">
+                    也可以点击"基于薄弱点生成"自动选题
+                </p>
+            </div>
+            <div id="questionsContainer"></div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="practiceSettingsModal" class="modal hidden">
+        <div class="modal-content">
+            <h2>⚙️ 设置</h2>
+            <p style="margin-bottom:12px;font-size:0.9rem;color:var(--text-secondary);">需要 DeepSeek API Key 来生成练习。</p>
+            <div class="form-group">
+                <label>DeepSeek API Key</label>
+                <input type="password" id="practiceApiKeyInput" placeholder="sk-..." />
+            </div>
+            <button id="practiceSaveKey" class="btn-primary">保存</button>
+            <p id="practiceApiKeyStatus"></p>
+            <button class="btn-secondary modal-close">关闭</button>
+        </div>
+    </div>
+
+    <script src="js/settings.js"></script>
+    <script src="js/knowledge-map.js"></script>
+    <script src="js/practice.js"></script>
+</body>
+</html>

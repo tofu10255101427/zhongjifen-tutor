@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>积分向导 — 你的AI数学导师</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <nav class="top-nav">
+        <div class="nav-brand">📐 积分向导</div>
+        <div class="nav-links">
+            <a href="chat.html" class="nav-link">💬 AI交流区</a>
+            <a href="mindmap.html" class="nav-link">🧠 思维导图</a>
+            <a href="practice.html" class="nav-link">📝 练习生成</a>
+        </div>
+        <button id="settingsBtn" class="icon-btn" title="设置">⚙️</button>
+    </nav>
+
+    <main class="landing">
+        <div class="hero">
+            <h1>遇到积分难题？<br>AI导师就在这儿</h1>
+            <p class="subtitle">从二重积分到曲面积分，一步步攻克高等数学的难关</p>
+            <div class="hero-actions">
+                <a href="chat.html" class="btn-primary">开始学习 →</a>
+                <a href="mindmap.html" class="btn-secondary">先看知识图谱</a>
+            </div>
+        </div>
+        <div class="features">
+            <div class="feature-card">
+                <span class="feature-icon">💬</span>
+                <h3>AI 对话教学</h3>
+                <p>AI会记住你的薄弱点，针对性讲解。不只是问答，是懂你的导师。</p>
+            </div>
+            <div class="feature-card">
+                <span class="feature-icon">🧠</span>
+                <h3>动态知识导图</h3>
+                <p>知识图谱根据你的学习进度自动调整，薄弱模块自动放大突出。</p>
+            </div>
+            <div class="feature-card">
+                <span class="feature-icon">📝</span>
+                <h3>智能练习生成</h3>
+                <p>AI根据你的薄弱点自动选题，也可以自选标签定制练习题。</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal hidden">
+        <div class="modal-content">
+            <h2>⚙️ 设置</h2>
+            <div class="form-group">
+                <label>DeepSeek API Key</label>
+                <input type="password" id="apiKeyInput" placeholder="sk-..." />
+                <p class="hint">你的Key只存在浏览器本地，不会上传到任何服务器。</p>
+            </div>
+            <button id="saveApiKey" class="btn-primary">保存</button>
+            <p id="apiKeyStatus"></p>
+            <button class="btn-secondary modal-close">关闭</button>
+        </div>
+    </div>
+
+    <script src="js/settings.js"></script>
+</body>
+</html>

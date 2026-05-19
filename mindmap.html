@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>思维导图 — 积分向导</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/markmap-autoloader"></script>
+</head>
+<body>
+    <nav class="top-nav">
+        <div class="nav-brand">📐 积分向导</div>
+        <div class="nav-links">
+            <a href="chat.html" class="nav-link">💬 AI交流区</a>
+            <a href="mindmap.html" class="nav-link" style="background:var(--primary-light);color:var(--primary)">🧠 思维导图</a>
+            <a href="practice.html" class="nav-link">📝 练习生成</a>
+        </div>
+    </nav>
+
+    <div class="mindmap-layout">
+        <div class="mindmap-main" id="mindmapMain">
+            <div class="svg-container" id="mindmap-container"></div>
+        </div>
+        <div class="mindmap-sidebar" id="mindmapSidebar">
+            <h3>📊 掌握度概览</h3>
+            <div id="masteryList"></div>
+            <p style="font-size:0.8rem;color:var(--text-secondary);margin-top:12px;">
+                在AI交流区学习后，掌握度会自动更新。<br>
+                红色 = 待加强 · 黄色 = 一般 · 绿色 = 良好
+            </p>
+        </div>
+    </div>
+
+    <script src="js/knowledge-map.js"></script>
+    <script>
+        // 用 SVG 手绘思维导图（不用markmap了——markmap是markdown输入，这里需要动态节点大小）
+        // 用 D3 做一棵可拖拽的树
+        function renderMindmap() {
+            const container = document.getElementById('mindmap-container');
+            const width = container.parentElement.clientWidth;
+            const height = container.parentElement.clientHeight || 600;
+
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('width', width);
+            svg.setAttribute('height', height);
+            svg.style.display = 'block';
+            container.appendChild(svg);
+
+            // 手动计算树布局——简单递归
+            const mastery = loadMastery();
+
+            const NODE_W = 180;
+            const NODE_H = 36;
+            const LEVEL_GAP = 60;
+            const SIBLING_GAP = 10;
+
+            function layoutTree(node, x, y, positions = []) {
+                const children = node.children || [];
+                const totalH = children.reduce((sum, c) => {
+                    const sub = layoutTree(c, x + LEVEL_GAP, y + sum);
+                    return sum + sub.totalH + SIBLING_GAP;
+                }, 0) - SIBLING_GAP;
+
+                const selfY = children.length > 0 ? y + totalH / 2 - NODE_H / 2 : y;
+                positions.push({ node, x: x, y: selfY, w: NODE_W, h: NODE_H });
+
+                return { totalH: Math.max(totalH, NODE_H + 10), positions };
+            }
+
+            const result = layoutTree(KNOWLEDGE_MAP, 20, 20);
+            const allPos = result.positions;
+
+            // 计算颜色和大小——掌握度低的放大、标红
+            allPos.forEach(p => {
+                const m = mastery[p.node.id] || 0.3;
+                // 掌握度越低，节点越大（吸引注意）
+                const scale = 1 + (1 - m) * 0.4;
+                p.w = NODE_W * scale;
+                p.h = NODE_H * scale;
+            });
+
+            // 画连线
+            function drawConnections(node, posMap) {
+                const children = node.children || [];
+                const parentPos = posMap.find(p => p.node.id === node.id);
+                children.forEach(c => {
+                    const childPos = posMap.find(p => p.node.id === c.id);
+                    if (parentPos && childPos) {
+                        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                        line.setAttribute('x1', parentPos.x + parentPos.w);
+                        line.setAttribute('y1', parentPos.y + parentPos.h / 2);
+                        line.setAttribute('x2', childPos.x);
+                        line.setAttribute('y2', childPos.y + childPos.h / 2);
+                        line.setAttribute('stroke', '#cbd5e1');
+                        line.setAttribute('stroke-width', '1.5');
+                        svg.appendChild(line);
+                    }
+                    drawConnections(c, posMap);
+                });
+            }
+            drawConnections(KNOWLEDGE_MAP, allPos);
+
+            // 画节点
+            allPos.forEach(p => {
+                const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                g.setAttribute('transform', `translate(${p.x}, ${p.y})`);
+                g.style.cursor = 'pointer';
+
+                const m = mastery[p.node.id] || 0.3;
+                const fillColor = m < 0.35 ? '#fef2f2' : m < 0.6 ? '#fffbeb' : '#f0fdf4';
+                const borderColor = m < 0.35 ? '#fca5a5' : m < 0.6 ? '#fcd34d' : '#86efac';
+
+                const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                rect.setAttribute('width', p.w);
+                rect.setAttribute('height', p.h);
+                rect.setAttribute('rx', '8');
+                rect.setAttribute('fill', fillColor);
+                rect.setAttribute('stroke', borderColor);
+                rect.setAttribute('stroke-width', m < 0.35 ? '2.5' : '1.5');
+                g.appendChild(rect);
+
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', p.w / 2);
+                text.setAttribute('y', p.h / 2);
+                text.setAttribute('text-anchor', 'middle');
+                text.setAttribute('dominant-baseline', 'central');
+                text.setAttribute('font-size', '13');
+                text.setAttribute('fill', '#1e293b');
+                text.textContent = p.node.title;
+                g.appendChild(text);
+
+                // 点击——在侧边栏显示详情
+                g.addEventListener('click', () => {
+                    showNodeDetail(p.node);
+                });
+
+                svg.appendChild(g);
+            });
+        }
+
+        function showNodeDetail(node) {
+            const mastery = loadMastery();
+            const m = mastery[node.id] || 0.3;
+            const list = document.getElementById('masteryList');
+
+            // 清空后在最上面展示当前节点详情
+            const header = document.querySelector('#mindmapSidebar h3');
+            // 在header之后插入详情卡片
+            const existing = document.getElementById('nodeDetailCard');
+            if (existing) existing.remove();
+
+            const card = document.createElement('div');
+            card.id = 'nodeDetailCard';
+            card.style.cssText = 'padding:12px;border:2px solid ' + getMasteryColor(m) + ';border-radius:8px;margin-bottom:16px;';
+
+            let childrenHtml = '';
+            if (node.children) {
+                childrenHtml = '<div style="margin-top:8px;font-size:0.8rem;color:var(--text-secondary);">子节点：' +
+                    node.children.map(c => c.title).join(' · ') + '</div>';
+            }
+
+            card.innerHTML = `
+                <div style="font-weight:700;margin-bottom:4px;">${node.title}</div>
+                <div style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:6px;">${node.desc}</div>
+                <div style="font-size:0.8rem;">
+                    掌握度：<span style="color:${getMasteryColor(m)};font-weight:600;">${getMasteryLabel(m)} (${Math.round(m*100)}%)</span>
+                </div>
+                ${childrenHtml}
+            `;
+            header.after(card);
+        }
+
+        function renderMasteryList() {
+            const mastery = loadMastery();
+            const list = document.getElementById('masteryList');
+            list.innerHTML = '';
+
+            // 按掌握度排序（最低的排最前）
+            const sorted = ALL_KNOWLEDGE_FLAT
+                .filter(n => n.id !== 'root')
+                .sort((a, b) => (mastery[a.id] || 0.3) - (mastery[b.id] || 0.3))
+                .slice(0, 20); // 只显示最重要的20个
+
+            sorted.forEach(n => {
+                const m = mastery[n.id] || 0.3;
+                const card = document.createElement('div');
+                card.className = 'knowledge-card';
+                card.innerHTML = `
+                    <div class="title">${n.title}</div>
+                    <div class="desc">${n.desc}</div>
+                    <div class="mastery" style="color:${getMasteryColor(m)}">
+                        ${getMasteryLabel(m)} (${Math.round(m*100)}%)
+                    </div>
+                `;
+                card.addEventListener('click', () => showNodeDetail(n));
+                list.appendChild(card);
+            });
+        }
+
+        window.addEventListener('load', () => {
+            renderMindmap();
+            renderMasteryList();
+        });
+
+        window.addEventListener('resize', () => {
+            const container = document.getElementById('mindmap-container');
+            container.innerHTML = '';
+            renderMindmap();
+        });
+    </script>
+</body>
+</html>
