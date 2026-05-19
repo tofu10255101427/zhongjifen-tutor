@@ -3,6 +3,10 @@
  */
 let selectedTags = new Set();
 
+function getApiKey() {
+    return localStorage.getItem('jft_api_key') || '';
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.tag-option').forEach(el => {
         el.addEventListener('click', () => {
