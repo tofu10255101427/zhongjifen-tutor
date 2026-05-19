@@ -1,17 +1,9 @@
 /**
  * practice.js — 练习生成逻辑
- * 
- * 设计：
- *   1. 标签选择 → AI生成题目
- *   2. 智能推荐 → 根据薄弱点自动选题
- *   3. 显示答案可折叠
  */
-
 let selectedTags = new Set();
 
-// 标签点击切换
 document.addEventListener('DOMContentLoaded', () => {
-    // 标签交互
     document.querySelectorAll('.tag-option').forEach(el => {
         el.addEventListener('click', () => {
             const tag = el.dataset.tag;
@@ -33,7 +25,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('generateBtn').addEventListener('click', generatePractice);
     document.getElementById('smartGenBtn').addEventListener('click', smartGenerate);
 
-    // Settings
     const settingsBtn = document.getElementById('settingsBtn3');
     const modal = document.getElementById('practiceSettingsModal');
     const keyInput = document.getElementById('practiceApiKeyInput');
@@ -62,7 +53,6 @@ function updateGenerateStatus(msg) {
     document.getElementById('generateStatus').textContent = msg;
 }
 
-// 标签 → 中文名映射
 const TAG_LABELS = {
     'double-rect': '二重积分直角坐标',
     'double-polar': '二重积分极坐标',
@@ -111,26 +101,19 @@ async function generatePractice() {
 }
 
 async function smartGenerate() {
-    // 从掌握度数据中找出最薄弱的几个知识点
     const mastery = loadMastery();
     const weakTopics = ALL_KNOWLEDGE_FLAT
         .filter(n => n.id !== 'root' && (mastery[n.id] || 0.3) < 0.5)
         .sort((a, b) => (mastery[a.id] || 0.3) - (mastery[b.id] || 0.3))
         .slice(0, 3);
 
-    // 从知识图谱中找对应标签
     const autoTags = [];
-    weakTopics.forEach(t => {
-        const tag = t.id;
-        if (TAG_LABELS[tag]) autoTags.push(tag);
-    });
+    weakTopics.forEach(t => { if (TAG_LABELS[t.id]) autoTags.push(t.id); });
 
     if (autoTags.length === 0) {
-        // 没有明确的薄弱标签，新增一些默认
         autoTags.push('double-rect', 'double-iter-swap', 'green');
     }
 
-    // 选中这些标签
     selectedTags.clear();
     document.querySelectorAll('.tag-option').forEach(el => el.classList.remove('selected'));
     autoTags.forEach(tag => {
@@ -139,7 +122,6 @@ async function smartGenerate() {
     });
 
     updateGenerateStatus(`🎯 根据薄弱点自动选题：${autoTags.map(t => TAG_LABELS[t] || t).join('、')}`);
-    
     await generatePractice();
 }
 
@@ -148,14 +130,9 @@ async function callDeepSeekForQuestions(apiKey, tags) {
     const topicTags = tags.filter(t => !t.startsWith('diff-'));
     const diffLabel = { 'diff-easy': '基础', 'diff-mid': '中等', 'diff-hard': '困难' }[difficulty] || '中等';
 
-    // 获取用户薄弱信息
-    const profile = loadProfile();
     const mastery = loadMastery();
     const weakStr = topicTags
-        .map(t => {
-            const m = mastery[t] || 0.3;
-            return `${TAG_LABELS[t] || t}（掌握度：${Math.round(m * 100)}%）`;
-        })
+        .map(t => { const m = mastery[t] || 0.3; return `${TAG_LABELS[t] || t}（掌握度：${Math.round(m * 100)}%）`; })
         .join('、');
 
     const systemPrompt = `你是高等数学积分学习题的出题老师。根据以下要求生成练习题。
@@ -182,6 +159,7 @@ async function callDeepSeekForQuestions(apiKey, tags) {
 
     const resp = await fetch('https://api.deepseek.com/chat/completions', {
         method: 'POST',
+        mode: 'cors',
         headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${apiKey}`
@@ -238,7 +216,6 @@ function renderQuestions(questions, tags) {
         container.appendChild(card);
     });
 
-    // 绑定查看答案按钮
     document.querySelectorAll('.show-answer-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             const qid = btn.dataset.qid;
