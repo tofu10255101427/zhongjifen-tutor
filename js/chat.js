@@ -1,6 +1,6 @@
-/**
- * chat.js — AI 对话逻辑
- */
+(function() {
+'use strict';
+
 const PROFILE_KEY = 'jft_profile';
 
 function getApiKey() {
@@ -70,8 +70,9 @@ function addMessage(role, content) {
 
 function renderMessage(role, content) {
     const container = document.getElementById('chatMessages');
+    if (!container) return;
     const div = document.createElement('div');
-    div.className = `message ${role}`;
+    div.className = 'message ' + role;
     div.innerHTML = content.replace(/\n/g, '<br>');
     container.appendChild(div);
     container.scrollTop = container.scrollHeight;
@@ -79,6 +80,7 @@ function renderMessage(role, content) {
 
 function showTyping() {
     const container = document.getElementById('chatMessages');
+    if (!container) return;
     const div = document.createElement('div');
     div.className = 'message ai';
     div.id = 'typingIndicator';
@@ -93,13 +95,9 @@ function removeTyping() {
 }
 
 function parseAnalysis(text) {
-    const match = text.match(/---ANALYSIS---\n([\s\S]*?)\n---END---/);
+    var match = text.match(/---ANALYSIS---\n([\s\S]*?)\n---END---/);
     if (!match) return null;
-    try {
-        return JSON.parse(match[1]);
-    } catch {
-        return null;
-    }
+    try { return JSON.parse(match[1]); } catch(e) { return null; }
 }
 
 function cleanResponse(text) {
@@ -107,154 +105,130 @@ function cleanResponse(text) {
 }
 
 function renderProfile() {
-    const profile = loadProfile();
-    const container = document.getElementById('profileContent');
-    
-    let html = '';
-    for (const [key, val] of Object.entries(profile)) {
+    var profile = loadProfile();
+    var container = document.getElementById('profileContent');
+    if (!container) return;
+    var html = '';
+    for (var key in profile) {
+        var val = profile[key];
         if (key === '薄弱点' && Array.isArray(val) && val.length > 0) {
-            html += `<div class="profile-section">
-                <h4>${key}</h4>
-                ${val.map(v => `<span class="weakness-tag">${v}</span>`).join('')}
-            </div>`;
+            html += '<div class="profile-section"><h4>' + key + '</h4>';
+            html += val.map(function(v) { return '<span class="weakness-tag">' + v + '</span>'; }).join('');
+            html += '</div>';
         } else if (key === '常见错误' && Array.isArray(val) && val.length > 0) {
-            html += `<div class="profile-section">
-                <h4>${key}</h4>
-                ${val.map(v => `<span class="weakness-tag">${v}</span>`).join('')}
-            </div>`;
+            html += '<div class="profile-section"><h4>' + key + '</h4>';
+            html += val.map(function(v) { return '<span class="weakness-tag">' + v + '</span>'; }).join('');
+            html += '</div>';
         } else if (typeof val === 'number' && key === '信心指数') {
-            const pct = Math.round(val * 100);
-            const color = val < 0.35 ? '#dc2626' : val < 0.6 ? '#f59e0b' : '#16a34a';
-            html += `<div class="profile-section">
-                <h4>${key}</h4>
-                <div style="font-size:0.9rem;font-weight:600;color:${color}">${pct}%</div>
-            </div>`;
+            var pct = Math.round(val * 100);
+            var color = val < 0.35 ? '#dc2626' : val < 0.6 ? '#f59e0b' : '#16a34a';
+            html += '<div class="profile-section"><h4>' + key + '</h4>';
+            html += '<div style="font-size:0.9rem;font-weight:600;color:' + color + '">' + pct + '%</div></div>';
         } else if (typeof val === 'string') {
-            html += `<div class="profile-item">${key}：${val}</div>`;
+            html += '<div class="profile-item">' + key + '：' + val + '</div>';
         }
     }
-    
     if (!html) {
         html = '<p style="color:var(--text-secondary);font-size:0.85rem;">开始学习后，AI会在这里记录你的学习画像。</p>';
     }
-    
     container.innerHTML = html;
 }
 
 async function sendMessage() {
-    const input = document.getElementById('chatInput');
-    const text = input.value.trim();
+    var input = document.getElementById('chatInput');
+    var text = input ? input.value.trim() : '';
     if (!text) return;
-
-    const apiKey = getApiKey();
-    if (!apiKey) {
-        document.getElementById('chatSettingsModal').classList.remove('hidden');
+    var apiKey = getApiKey();
+    if (!apiKey) { 
+        var m = document.getElementById('chatSettingsModal');
+        if (m) m.classList.remove('hidden');
         return;
     }
-
     renderMessage('user', text);
     input.value = '';
     input.style.height = 'auto';
     addMessage('user', text);
     showTyping();
-
     try {
-        const response = await callDeepSeek(apiKey, text);
+        var response = await callDeepSeek(apiKey);
         removeTyping();
-        const analysis = parseAnalysis(response);
-        const clean = cleanResponse(response);
-        renderMessage('ai', clean);
-        addMessage('assistant', clean);
+        var analysis = parseAnalysis(response);
+        var clean = cleanResponse(response);
+        renderMessage('ai', clean || response);
+        addMessage('assistant', clean || response);
         if (analysis) processAnalysis(analysis);
     } catch (err) {
         removeTyping();
-        renderMessage('ai', '😅 抱歉，调用出错了：' + err.message + '\n\n请检查 API Key 是否正确，或者稍后再试。');
+        renderMessage('ai', '😅 抱歉，调用出错了：' + err.message);
         console.error(err);
     }
 }
 
-async function callDeepSeek(apiKey, userMessage) {
-    const systemPrompt = buildSystemPrompt();
-    const messages = [
-        { role: 'system', content: systemPrompt },
-        ...chatHistory.slice(-10)
-    ];
-
-    const resp = await fetch('https://api.deepseek.com/chat/completions', {
+async function callDeepSeek(apiKey) {
+    var systemPrompt = buildSystemPrompt();
+    var msgs = [{ role: 'system', content: systemPrompt }];
+    for (var i = Math.max(0, chatHistory.length - 10); i < chatHistory.length; i++) {
+        msgs.push(chatHistory[i]);
+    }
+    var resp = await fetch('https://api.deepseek.com/chat/completions', {
         method: 'POST',
         mode: 'cors',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-            model: 'deepseek-chat',
-            messages: messages,
-            temperature: 0.7,
-            max_tokens: 2048,
-            stream: false
-        })
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
+        body: JSON.stringify({ model: 'deepseek-chat', messages: msgs, temperature: 0.7, max_tokens: 2048, stream: false })
     });
-
-    if (!resp.ok) {
-        let errBody;
-        try { errBody = await resp.text(); } catch(e) { errBody = '未知错误'; }
-        throw new Error(`API错误 ${resp.status}: ${errBody}`);
-    }
-
-    const data = await resp.json();
+    if (!resp.ok) throw new Error('API ' + resp.status);
+    var data = await resp.json();
     return data.choices[0].message.content;
 }
 
 function processAnalysis(analysis) {
-    const profile = loadProfile();
-    const mastery = loadMastery();
-
+    var profile = loadProfile();
+    var mastery = loadMastery();
     if (analysis.weaknesses && Array.isArray(analysis.weaknesses)) {
-        analysis.weaknesses.forEach(w => {
-            if (mastery[w] !== undefined) {
-                mastery[w] = Math.max(0, mastery[w] - 0.05);
-            }
+        analysis.weaknesses.forEach(function(w) {
+            if (mastery[w] !== undefined) mastery[w] = Math.max(0, mastery[w] - 0.05);
         });
-        profile.薄弱点 = analysis.weaknesses
-            .map(id => { const n = findNode(id); return n ? n.title : id; })
-            .filter((v, i, a) => a.indexOf(v) === i);
+        profile.薄弱点 = analysis.weaknesses.map(function(id) {
+            var n = findNode(id);
+            return n ? n.title : id;
+        }).filter(function(v, i, a) { return a.indexOf(v) === i; });
     }
-
     if (analysis.profile_update) {
-        for (const [key, val] of Object.entries(analysis.profile_update)) {
+        for (var key in analysis.profile_update) {
+            var val = analysis.profile_update[key];
             if (key === '常见错误') {
-                if (!profile.常见错误.includes(val)) profile.常见错误.push(val);
-            } else {
-                profile[key] = val;
-            }
+                if (profile.常见错误.indexOf(val) === -1) profile.常见错误.push(val);
+            } else { profile[key] = val; }
         }
     }
-
     if (analysis.confidence_delta !== undefined) {
         profile.信心指数 = Math.max(0, Math.min(1, (profile.信心指数 || 0.5) + analysis.confidence_delta));
     }
-
     saveMastery(mastery);
     saveProfile(profile);
     renderProfile();
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    const input = document.getElementById('chatInput');
-    const sendBtn = document.getElementById('sendBtn');
-
-    sendBtn.addEventListener('click', sendMessage);
-    input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            sendMessage();
-        }
-    });
-    input.addEventListener('input', () => {
-        input.style.height = 'auto';
-        input.style.height = Math.min(input.scrollHeight, 120) + 'px';
-    });
-
+function init() {
+    var input = document.getElementById('chatInput');
+    var sendBtn = document.getElementById('sendBtn');
+    if (sendBtn) sendBtn.addEventListener('click', sendMessage);
+    if (input) {
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+        });
+        input.addEventListener('input', function() {
+            input.style.height = 'auto';
+            input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+        });
+    }
     renderProfile();
-});
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+} else {
+    init();
+}
+
+})();
