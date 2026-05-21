@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>练习生成 — 离散数学向导</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+    <style>
+/* 练习页：标签 + 卡片布局 */
+.practice-page {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 32px 24px;
+}
+.practice-page h2 {
+    font-size: 1.4rem;
+    margin-bottom: 8px;
+}
+.practice-page .page-desc {
+    color: var(--text-secondary);
+    font-size: 0.88rem;
+    margin-bottom: 24px;
+}
+
+/* 控制区：标签选择区 */
+.tag-select-area {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    margin-bottom: 20px;
+}
+.tag-section {
+    margin-bottom: 14px;
+}
+.tag-section:last-child {
+    margin-bottom: 0;
+}
+.tag-section-label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.tag-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.tag-btn {
+    padding: 5px 14px;
+    border: 1.5px solid var(--border);
+    border-radius: 20px;
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    user-select: none;
+    background: var(--card-bg);
+    color: var(--text);
+    white-space: nowrap;
+}
+.tag-btn:hover {
+    border-color: var(--primary);
+    background: var(--primary-light);
+}
+.tag-btn.selected {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+}
+.tag-btn.diff-easy { border-color: #d1fae5; color: #065f46; background: #ecfdf5; }
+.tag-btn.diff-easy:hover { background: #a7f3d0; }
+.tag-btn.diff-easy.selected { background: #059669; color: #fff; border-color: #059669; }
+.tag-btn.diff-mid { border-color: #fef3c7; color: #92400e; background: #fffbeb; }
+.tag-btn.diff-mid:hover { background: #fde68a; }
+.tag-btn.diff-mid.selected { background: #d97706; color: #fff; border-color: #d97706; }
+.tag-btn.diff-hard { border-color: #fce4ec; color: #9b1c1c; background: #fdf2f8; }
+.tag-btn.diff-hard:hover { background: #fbcfe8; }
+.tag-btn.diff-hard.selected { background: #dc2626; color: #fff; border-color: #dc2626; }
+
+/* 操作按钮区 */
+.action-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+}
+.action-row .btn-primary {
+    padding: 10px 28px;
+    font-size: 0.9rem;
+}
+.action-row .btn-secondary {
+    padding: 10px 20px;
+    font-size: 0.85rem;
+}
+.action-row .status-text {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    flex: 1;
+    text-align: right;
+}
+
+/* 题目卡片区 */
+.practice-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* 空状态 */
+.practice-empty {
+    text-align: center;
+    padding: 80px 20px;
+    background: var(--card-bg);
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+}
+.practice-empty .icon {
+    font-size: 3rem;
+    margin-bottom: 12px;
+}
+.practice-empty h3 {
+    font-size: 1.1rem;
+    margin-bottom: 6px;
+}
+.practice-empty p {
+    color: var(--text-secondary);
+    font-size: 0.88rem;
+    max-width: 320px;
+    margin: 0 auto;
+    line-height: 1.6;
+}
+
+/* 题目卡片 */
+.q-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    transition: box-shadow 0.2s;
+}
+.q-card:hover {
+    box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+}
+.q-card .q-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+.q-card .q-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--primary-light);
+    color: var(--primary);
+    font-weight: 700;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+}
+.q-card .q-title-text {
+    font-weight: 600;
+    font-size: 0.95rem;
+    padding-top: 2px;
+}
+.q-card .q-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 12px;
+    padding-left: 40px;
+}
+.q-card .q-tags span {
+    font-size: 0.72rem;
+    background: var(--primary-light);
+    color: var(--primary);
+    padding: 2px 8px;
+    border-radius: 10px;
+}
+.q-card .q-tags .diff-tag {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+.q-card .q-body {
+    font-size: 0.93rem;
+    line-height: 1.8;
+    margin-bottom: 16px;
+    padding-left: 40px;
+    color: var(--text);
+}
+.q-card .q-body .katex {
+    font-size: 1.05em;
+}
+.q-card .q-footer {
+    padding-left: 40px;
+}
+.show-answer-btn {
+    padding: 6px 18px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    background: var(--card-bg);
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.show-answer-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+    background: var(--primary-light);
+}
+.q-card .q-answer {
+    display: none;
+    margin-top: 12px;
+    padding: 16px 20px;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    line-height: 1.8;
+    margin-left: 40px;
+}
+.q-card .q-answer.show {
+    display: block;
+}
+.q-card .q-answer .katex {
+    font-size: 1.05em;
+}
+
+/* 响应式 */
+@media (max-width: 640px) {
+    .practice-page { padding: 16px 12px; }
+    .tag-select-area { padding: 14px; }
+    .q-card { padding: 16px; }
+    .q-card .q-tags, .q-card .q-body, .q-card .q-footer, .q-card .q-answer { padding-left: 0; }
+}
+    </style>
+</head>
+<body>
+    <nav class="top-nav">
+        <div class="nav-brand">📖 离散数学向导</div>
+        <div class="nav-links">
+            <a href="chat.html" class="nav-link">💬 AI交流区</a>
+            <a href="mindmap.html" class="nav-link">🧠 思维导图</a>
+            <a href="practice.html" class="nav-link" style="background:var(--primary-light);color:var(--primary)">📝 练习生成</a>
+        </div>
+    </nav>
+
+    <div class="practice-page">
+        <h2>📝 练习生成</h2>
+        <p class="page-desc">选择知识点和难度，AI 将为你生成针对性练习题</p>
+
+        <!-- 标签选择区 -->
+        <div class="tag-select-area">
+            <div class="tag-section">
+                <div class="tag-section-label">📌 命题逻辑</div>
+                <div class="tag-row">
+                    <span class="tag-btn" data-tag="proposition">命题与联结词</span>
+                    <span class="tag-btn" data-tag="truth-table">真值表</span>
+                    <span class="tag-btn" data-tag="equivalence">等价演算</span>
+                    <span class="tag-btn" data-tag="normal-form">范式</span>
+                    <span class="tag-btn" data-tag="inference">推理</span>
+                </div>
+            </div>
+            <div class="tag-section">
+                <div class="tag-section-label">📌 谓词逻辑</div>
+                <div class="tag-row">
+                    <span class="tag-btn" data-tag="predicate">谓词与量词</span>
+                    <span class="tag-btn" data-tag="prenex">前束范式</span>
+                    <span class="tag-btn" data-tag="pred-inference">谓词推理</span>
+                </div>
+            </div>
+            <div class="tag-section">
+                <div class="tag-section-label">📌 计数</div>
+                <div class="tag-row">
+                    <span class="tag-btn" data-tag="perm-comb">排列组合</span>
+                    <span class="tag-btn" data-tag="pigeonhole">鸽巢原理</span>
+                    <span class="tag-btn" data-tag="binomial">二项式定理</span>
+                    <span class="tag-btn" data-tag="inclusion">容斥原理</span>
+                </div>
+            </div>
+            <div class="tag-section">
+                <div class="tag-section-label">📌 高级计数</div>
+                <div class="tag-row">
+                    <span class="tag-btn" data-tag="recurrence">递推关系</span>
+                    <span class="tag-btn" data-tag="generating-function">生成函数</span>
+                    <span class="tag-btn" data-tag="catalan">卡特兰数</span>
+                </div>
+            </div>
+            <div class="tag-section">
+                <div class="tag-section-label">📌 关系</div>
+                <div class="tag-row">
+                    <span class="tag-btn" data-tag="rel-matrix">关系矩阵</span>
+                    <span class="tag-btn" data-tag="rel-props">关系性质</span>
+                    <span class="tag-btn" data-tag="equivalence-rel">等价关系</span>
+                    <span class="tag-btn" data-tag="partial-order">偏序关系</span>
+                    <span class="tag-btn" data-tag="closure">关系闭包</span>
+                </div>
+            </div>
+            <div class="tag-section">
+                <div class="tag-section-label">⭐ 难度</div>
+                <div class="tag-row">
+                    <span class="tag-btn diff-easy" data-tag="diff-easy">🌱 基础</span>
+                    <span class="tag-btn diff-mid" data-tag="diff-mid">🔥 中等</span>
+                    <span class="tag-btn diff-hard" data-tag="diff-hard">💀 困难</span>
+                </div>
+            </div>
+            <div class="action-row">
+                <button class="btn-primary" id="generateBtn">🤖 生成练习</button>
+                <button class="btn-secondary" id="smartGenBtn">🎯 智能推荐</button>
+                <button class="btn-secondary" id="clearTagsBtn" style="padding:10px 14px;font-size:0.82rem;">🗑️ 清除</button>
+                <span class="status-text" id="generateStatus">选择知识点开始练习</span>
+            </div>
+        </div>
+
+        <!-- 题目展示区 -->
+        <div class="practice-cards" id="questionsContainer">
+            <div class="practice-empty" id="emptyState">
+                <div class="icon">📝</div>
+                <h3>开始练习</h3>
+                <p>在上方选择知识点，点击「生成练习」获得 AI 定制的题目。</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 设置弹窗（ID 与 settings.js 匹配） -->
+    <div class="modal hidden" id="settingsModal">
+        <div class="modal-content">
+            <h2>⚙️ API Key 设置</h2>
+            <div class="form-group">
+                <label>DeepSeek API Key</label>
+                <input type="password" id="apiKeyInput" placeholder="sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
+                <p class="hint">API Key 仅保存在浏览器本地，不会上传。</p>
+            </div>
+            <div style="display:flex;gap:8px;">
+                <button class="btn-primary" id="saveApiKey">💾 保存</button>
+                <button class="btn-secondary modal-close">取消</button>
+            </div>
+            <p id="apiKeyStatus" style="font-size:0.85rem;margin-top:8px;"></p>
+        </div>
+    </div>
+
+    <script src="js/settings.js"></script>
+    <script src="js/practice.js"></script>
+</body>
+</html>

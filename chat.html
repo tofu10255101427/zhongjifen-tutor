@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI交流区 — 离散数学向导</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script>
+    MathJax = {
+      tex: { inlineMath: [['$','$'], ['\\(','\\)']], displayMath: [['$$','$$'], ['\\[','\\]']] },
+      options: { ignoreHtmlClass: 'no-mathjax' },
+      startup: { pageReady: () => MathJax.startup.defaultPageReady() }
+    };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+</head>
+<body>
+    <nav class="top-nav">
+        <div class="nav-brand">📖 离散数学向导</div>
+        <div class="nav-links">
+            <a href="chat.html" class="nav-link" style="background:var(--primary-light);color:var(--primary)">💬 AI交流区</a>
+            <a href="mindmap.html" class="nav-link">🧠 思维导图</a>
+            <a href="practice.html" class="nav-link">📝 练习生成</a>
+        </div>
+        <button id="settingsBtn" class="icon-btn" title="设置">⚙️</button>
+    </nav>
+
+    <div class="chat-layout">
+        <!-- 主对话区 -->
+        <div class="chat-main">
+            <div class="chat-messages" id="chatMessages">
+                <div class="message ai">
+                    👋 你好！我是你的离散数学导师。<br><br>
+                    告诉我你现在学到哪里了、遇到什么困难，或者直接扔一道题给我，我来帮你分析。<br><br>
+                    我会逐渐了解你的学习习惯和薄弱点，并体现在知识导图中。
+                </div>
+            </div>
+            <div class="chat-input-area">
+                <textarea id="chatInput" rows="1" placeholder="输入你的问题...（Enter发送，Shift+Enter换行）"></textarea>
+                <button id="sendBtn" class="btn-primary">发送</button>
+            </div>
+        </div>
+        <!-- 侧边栏：用户画像 -->
+        <div class="chat-sidebar" id="chatSidebar">
+            <h3>🧑‍🎓 你的学习档案</h3>
+            <div id="profileContent">
+                <p style="color:var(--text-secondary);font-size:0.85rem;">开始学习后，AI会在这里记录你的学习画像。</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal hidden">
+        <div class="modal-content">
+            <h2>⚙️ 设置</h2>
+            <p style="margin-bottom:12px;font-size:0.9rem;color:var(--text-secondary);">需要先设置 DeepSeek API Key 才能开始对话。</p>
+            <div class="form-group">
+                <label>DeepSeek API Key</label>
+                <input type="password" id="apiKeyInput" placeholder="sk-..." />
+            </div>
+            <button id="saveApiKey" class="btn-primary">保存</button>
+            <p id="apiKeyStatus"></p>
+            <button class="btn-secondary modal-close">关闭</button>
+        </div>
+    </div>
+
+    <script src="js/chat.js"></script>
+    <script src="js/settings.js"></script>
+</body>
+</html>

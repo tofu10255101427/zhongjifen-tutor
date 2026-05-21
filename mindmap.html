@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>思维导图 — 离散数学向导</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script>
+    MathJax = {
+      tex: { inlineMath: [['$','$'], ['\\\\(','\\\\)']], displayMath: [['$$','$$'], ['\\\[','\\\]']] },
+      options: { ignoreHtmlClass: 'no-mathjax' },
+      startup: { pageReady: () => MathJax.startup.defaultPageReady() }
+    };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+    <style>
+        .mindmap-layout {
+            display: flex;
+            height: calc(100vh - 60px);
+            padding: 16px;
+            gap: 16px;
+        }
+        .mindmap-main {
+            flex: 1;
+            position: relative;
+            background: #f8fafc;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+        #knowledge-graph { width: 100%; height: 100%; min-height: 100%; }
+        #knowledge-graph svg { display: block; }
+        .graph-hint {
+            position: absolute;
+            bottom: 12px; left: 50%;
+            transform: translateX(-50%);
+            font-size: 12px; color: #94a3b8;
+            background: rgba(255,255,255,0.85);
+            padding: 4px 14px; border-radius: 20px;
+            pointer-events: none; white-space: nowrap;
+        }
+        .graph-legend {
+            position: absolute; top: 16px; left: 16px;
+            display: flex; flex-direction: column; gap: 4px;
+            background: rgba(255,255,255,0.92);
+            padding: 10px 14px; border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            font-size: 13px; pointer-events: none;
+        }
+        .graph-legend .legend-item { display: flex; align-items: center; gap: 6px; }
+        .graph-legend .legend-dot { width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid #fff; }
+        .graph-tooltip {
+            position: absolute;
+            background: #1e293b; color: #f1f5f9;
+            padding: 12px 16px; border-radius: 8px;
+            font-size: 14px; line-height: 1.5;
+            max-width: 300px;
+            pointer-events: none; opacity: 0;
+            transition: opacity 0.15s;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 10;
+        }
+        .graph-tooltip.visible { opacity: 1; }
+        .graph-tooltip .tt-title { font-weight: 600; font-size: 16px; margin-bottom: 4px; }
+        .graph-tooltip .tt-detail { font-size: 13px; color: #cbd5e1; }
+        .graph-tooltip .tt-mastery { font-size: 12px; margin-top: 6px; padding: 4px 10px; border-radius: 10px; display: inline-block; }
+        .loading-spinner { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 15px; color: #94a3b8; }
+        .mindmap-info { position: absolute; top: 16px; right: 16px; font-size: 12px; color: #94a3b8; background: rgba(255,255,255,0.85); padding: 4px 10px; border-radius: 8px; pointer-events: none; }
+        .node-detail-modal {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            background: #fff; border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+            width: 380px; max-width: 90vw;
+            z-index: 100; display: none;
+            overflow: hidden;
+        }
+        .node-detail-modal.open { display: block; }
+        .node-detail-modal .nd-header {
+            padding: 20px 24px 16px;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .node-detail-modal .nd-header h3 { margin: 0; font-size: 20px; font-weight: 700; }
+        .node-detail-modal .nd-close {
+            background: none; border: none; font-size: 24px; cursor: pointer;
+            color: #94a3b8; line-height: 1; padding: 4px;
+        }
+        .node-detail-modal .nd-close:hover { color: #475569; }
+        .node-detail-modal .nd-body { padding: 0 24px 20px; }
+        .node-detail-modal .nd-detail { font-size: 14px; color: #475569; line-height: 1.6; margin-bottom: 12px; }
+        .node-detail-modal .nd-mastery {
+            font-size: 13px; display: inline-block; padding: 4px 12px;
+            border-radius: 12px; margin-bottom: 16px;
+        }
+        .node-detail-modal .nd-section-title { font-size: 13px; font-weight: 600; color: #64748b; margin-bottom: 8px; }
+        .node-detail-modal .nd-btn {
+            display: block; width: 100%; padding: 10px; border-radius: 10px;
+            border: none; font-size: 14px; font-weight: 600; cursor: pointer;
+            margin-bottom: 8px; transition: background 0.15s;
+        }
+        .node-detail-modal .nd-btn-primary { background: var(--primary, #6366f1); color: #fff; }
+        .node-detail-modal .nd-btn-primary:hover { opacity: 0.9; }
+        .node-detail-modal .nd-btn-secondary { background: #f1f5f9; color: #475569; }
+        .node-detail-modal .nd-btn-secondary:hover { background: #e2e8f0; }
+        .modal-backdrop {
+            position: absolute; inset: 0; background: rgba(0,0,0,0.3);
+            z-index: 99; display: none;
+        }
+        .modal-backdrop.open { display: block; }
+    </style>
+</head>
+<body>
+    <nav class="top-nav">
+        <div class="nav-brand">📖 离散数学向导</div>
+        <div class="nav-links">
+            <a href="chat.html" class="nav-link">💬 AI交流区</a>
+            <a href="mindmap.html" class="nav-link" style="background:var(--primary-light);color:var(--primary)">🧠 思维导图</a>
+            <a href="practice.html" class="nav-link">📝 练习生成</a>
+        </div>
+        <button id="settingsBtn" class="icon-btn" title="设置">⚙️</button>
+    </nav>
+
+    <div class="mindmap-layout">
+        <div class="mindmap-main" id="knowledge-graph-container">
+            <div id="knowledge-graph"></div>
+            <div id="tooltip" class="graph-tooltip"></div>
+            <div class="graph-legend" id="graph-legend"></div>
+            <div class="mindmap-info" id="clickHint">点击章节展开/收起</div>
+            <div class="graph-hint">🖱 拖拽移动 · Ctrl+滚轮缩放 · 单击展开/收起章节 · 悬停查看详情</div>
+            <div class="loading-spinner" id="loading-spinner">⏳ 加载中...</div>
+            <div class="modal-backdrop" id="modalBackdrop"></div>
+            <div class="node-detail-modal" id="nodeDetailModal">
+                <div class="nd-header" id="ndHeader">
+                    <h3 id="ndTitle">知识点</h3>
+                    <button class="nd-close" id="ndCloseBtn">✕</button>
+                </div>
+                <div class="nd-body">
+                    <div class="nd-detail" id="ndDetail">详细说明</div>
+                    <div class="nd-mastery" id="ndMastery">掌握度</div>
+                                                                            </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="settingsModal" class="modal hidden">
+        <div class="modal-content">
+            <h2>⚙️ 设置</h2>
+            <p style="margin-bottom:12px;font-size:0.9rem;color:var(--text-secondary);">需要先设置 DeepSeek API Key 才能使用练习生成功能。</p>
+            <div class="form-group">
+                <label>DeepSeek API Key</label>
+                <input type="password" id="apiKeyInput" placeholder="sk-..." />
+                <p class="hint">你的Key只存在浏览器本地，不会上传到任何服务器。</p>
+            </div>
+            <button id="saveApiKey" class="btn-primary">保存</button>
+            <p id="apiKeyStatus"></p>
+            <button class="btn-secondary modal-close">关闭</button>
+        </div>
+    </div>
+
+    <script src="js/settings.js"></script>
+    <script>
+    const chapters = [
+        {
+            id: "ch1", name: "命题逻辑",
+            color: "#8b5cf6", detail: "研究命题与推理的形式化工具",
+            children: [
+                { id: "proposition", name: "命题", detail: "<p><strong>命题</strong>是能判断真假的陈述句，是数理逻辑最基础的研究对象。命题必须满足两个条件：第一，它是一个陈述句（疑问句、祈使句、感叹句都不是命题）；第二，它有唯一的真值——真或假，不能模棱两可。</p><p>例如\"2是质数\"是真命题，\"1+1=3\"是假命题。但\"这个语句是假的\"不是命题（自指悖论），\"x>5\"也不是命题（x未确定）。</p>" },
+                { id: "connectives", name: "联结词", detail: "<p><strong>逻辑联结词</strong>用于将简单命题组合成复合命题，包括五种：</p><ul><li><strong>否定 ¬</strong>：¬P 表示\"非P\"，真值相反</li><li><strong>合取 ∧</strong>：P∧Q 表示\"P且Q\"，两者皆真才真</li><li><strong>析取 ∨</strong>：P∨Q 表示\"P或Q\"，至少一真即真</li><li><strong>蕴含 →</strong>：P→Q 表示\"如果P则Q\"，仅当前真后假时为假</li><li><strong>等价 ↔</strong>：P↔Q 表示\"P当且仅当Q\"，同真同假</li></ul>" },
+                { id: "truth-table", name: "真值表", detail: "<p><strong>真值表</strong>是列举命题公式在所有可能的真值指派下取值情况的表格。n个命题变元共有2ⁿ种指派。</p><p>通过真值表可以直观判断公式类型：</p><ul><li><strong>重言式（永真式）</strong>：所有指派下均为真</li><li><strong>矛盾式（永假式）</strong>：所有指派下均为假</li><li><strong>可满足式</strong>：至少一种指派下为真</li></ul><p>真值表也是证明等价关系的基本方法。</p>" },
+                { id: "equivalence", name: "等价公式", detail: "<p><strong>等价公式</strong>指在所有真值指派下真值都相同的两个公式，记为 A ⇔ B。常用的基本等价式：</p><ul><li>双重否定律：¬¬P ⇔ P</li><li>德摩根律：¬(P∧Q) ⇔ ¬P∨¬Q，¬(P∨Q) ⇔ ¬P∧¬Q</li><li>交换律：P∧Q ⇔ Q∧P，P∨Q ⇔ Q∨P</li><li>结合律：(P∧Q)∧R ⇔ P∧(Q∧R)</li><li>分配律：P∧(Q∨R) ⇔ (P∧Q)∨(P∧R)</li><li>吸收律：P∨(P∧Q) ⇔ P</li></ul>" },
+                { id: "implication", name: "蕴含与对偶", detail: "<p><strong>蕴含式</strong>（永真蕴含式）指在所有指派下 A→B 都为真，记作 A ⇒ B。</p><p>重要蕴含式：</p><ul><li><strong>假言推理（MP）</strong>：(P→Q)∧P ⇒ Q。\"如果天下雨地就湿，天下雨了，所以地湿\"</li><li><strong>拒取式（MT）</strong>：(P→Q)∧¬Q ⇒ ¬P。\"如果下雨地就湿，地没湿，所以没下雨\"</li><li>假言三段论：(P→Q)∧(Q→R) ⇒ P→R</li><li>析取三段论：(P∨Q)∧¬P ⇒ Q</li></ul><p><strong>对偶原理</strong>：将公式中的∧和∨互换、T和F互换得到的公式互为对偶。</p>" },
+                { id: "normal-form", name: "范式", detail: "<p><strong>范式</strong>是对命题公式进行标准化表示的形式：</p><p><strong>析取范式（DNF）</strong>：若干个合取子句的析取，形如 (P∧Q)∨(¬P∧R)。</p><p><strong>合取范式（CNF）</strong>：若干个析取子句的合取，形如 (P∨Q)∧(¬P∨R)。</p><p><strong>主析取/合取范式</strong>：每个子句中所有变元恰好出现一次（变元或其否定），是唯一的规范表示。</p>" },
+                { id: "inference", name: "推理理论", detail: "<p><strong>推理</strong>是从已知前提出发，依据推理规则推导出结论的过程。</p><p>有效推理的定义：如果前提全为真时结论必然为真，则该推理有效。</p><p>推理规则包括：假言推理（MP）、拒取式（MT）、假言三段论（HS）、析取三段论（DS）、附加律、化简律、合取引入等。</p><p>证明方法有直接证明法、条件证明法（CP规则）、反证法（归谬法）等。</p>" },
+            ]
+        },
+        {
+            id: "ch2", name: "谓词逻辑",
+            color: "#3b82f6", detail: "引入谓词和量词，更强大的逻辑系统",
+            children: [
+                { id: "predicate", name: "谓词", detail: "<p><strong>谓词</strong>是描述对象性质或关系的词项，记作 P(x) 表示\"x具有性质P\"。例如 P(x) 表示\"x是质数\"，Q(x,y) 表示\"x大于y\"。</p><p>将命题中的具体对象抽象为变元，就得到了谓词。这样能够表达命题逻辑无法表达的内容，如\"所有的金属都导电\"、\"存在一个数大于零\"。</p>" },
+                { id: "quantifier", name: "量词", detail: "<p><strong>量词</strong>用于指明变元被考虑的范围（论域/个体域），分为两种：</p><ul><li><strong>全称量词 ∀</strong>：∀xP(x) 表示\"对论域中的所有x，P(x)成立\"</li><li><strong>存在量词 ∃</strong>：∃xP(x) 表示\"论域中存在某个x使P(x)成立\"</li></ul><p>量词的先后顺序影响语义：∀x∃yQ(x,y) 与 ∃y∀xQ(x,y) 含义不同。</p>" },
+                { id: "formula", name: "谓词公式", detail: "<p><strong>谓词公式</strong>由原子公式经逻辑联结词和量词组合而成。原子公式指 P(x)、Q(x,y) 这样的表达式。</p><p>谓词公式的递归定义：原子公式是公式；若A、B是公式，则¬A、A∧B、A∨B、A→B、A↔B、∀xA、∃xA 也是公式。</p>" },
+                { id: "bound-free", name: "自由变元约束变元", detail: "<p><strong>约束变元</strong>：受量词约束的变元。∀x 或 ∃x 后公式中的x都是约束出现。</p><p><strong>自由变元</strong>：在公式中没有被任何量词约束的变元。</p><p>约束变元的名称可以替换（改名规则），只要不与其他变元冲突。自由变元则不能随意改名。</p>" },
+                { id: "scope", name: "量词辖域", detail: "<p><strong>量词辖域</strong>指量词所作用的公式范围。∀x 或 ∃x 后面的最短公式即为该量词的辖域。</p><p>如果多个量词并排出现，如 ∀x∀yP(x,y)，每个量词的辖域依次包含后续部分。</p><p>明确辖域对于正确理解公式含义和进行等价变换很重要。</p>" },
+                { id: "pred-eq", name: "谓词等价", detail: "<p>谓词逻辑中的基本等价式：</p><ul><li><strong>量词否定律</strong>：¬∀xP(x) ⇔ ∃x¬P(x)，¬∃xP(x) ⇔ ∀x¬P(x)</li><li><strong>辖域收缩</strong>：∀x(P(x)∧Q) ⇔ ∀xP(x)∧Q（Q不含x）</li><li><strong>辖域扩张</strong>：∀x(P(x)∨Q) ⇔ ∀xP(x)∨Q</li><li><strong>量词分配</strong>：∀x(P(x)∧Q(x)) ⇔ ∀xP(x)∧∀xQ(x)</li></ul>" },
+                { id: "prenex", name: "前束范式", detail: "<p><strong>前束范式</strong>是所有量词都在公式最前面的谓词公式，形如 Q₁x₁Q₂x₂...QₙxₙF，其中Qi是∀或∃，F是不含量词的公式。</p><p>每个谓词公式都可以化为等值的前束范式。</p>" },
+                { id: "pred-inference", name: "谓词推理", detail: "<p>谓词逻辑的推理在命题逻辑基础上增加了量词处理规则：</p><ul><li><strong>US（全称特指）</strong>：∀xP(x) ⇒ P(c)</li><li><strong>UG（全称推广）</strong>：P(c) 对任意c ⇒ ∀xP(x)</li><li><strong>ES（存在特指）</strong>：∃xP(x) ⇒ P(c)（c为新常元）</li><li><strong>EG（存在推广）</strong>：P(c) ⇒ ∃xP(x)</li></ul>" },
+            ]
+        },
+        {
+            id: "ch6", name: "计数",
+            color: "#10b981", detail: "研究有限集合元素个数的方法",
+            children: [
+                { id: "counting-basic", name: "基本计数原理", detail: "<p><strong>和法则</strong>：如果做一件事情有m类方式，第i类有nᵢ种方法，且各类之间互不重叠，则总方法数为 n₁+n₂+...+nₘ。</p><p><strong>积法则</strong>：如果做一件事情需要依次完成m个步骤，第i步有nᵢ种方法，则总方法数为 n₁×n₂×...×nₘ。</p><p>这是组合数学最基本的两个原理，几乎所有计数问题都建立在这两个原理之上。</p>" },
+                { id: "pigeonhole", name: "鸽巢原理", detail: "<p><strong>鸽巢原理</strong>又称抽屉原理：如果将n+1个或更多的物体放入n个盒子中，那么至少有一个盒子包含至少两个物体。</p><p><strong>推广形式</strong>：如果将N个物体放入k个盒子中，则至少有一个盒子包含至少⌈N/k⌉个物体。</p><p>鸽巢原理虽然简单，但在组合数学、数论和计算机科学中有广泛应用。</p>" },
+                { id: "perm-comb", name: "排列与组合", detail: "<p><strong>排列</strong>：从n个不同元素中取r个按顺序排列，P(n,r)=n!/(n−r)!。</p><p><strong>线性排列</strong>：n个不同元素的全排列数为 n!。</p><p><strong>圆排列</strong>：n个不同元素的圆排列数为 (n−1)!。</p><p><strong>组合</strong>：从n个不同元素中取r个（不计顺序），C(n,r)=n!/(r!(n−r)!)。</p>" },
+                { id: "multiset", name: "多重集排列组合", detail: "<p><strong>多重集的排列</strong>：若n个元素中有重复，元素aᵢ出现kᵢ次，则全排列数为 n!/(k₁!k₂!...kₘ!)。</p><p><strong>多重集的组合</strong>：从有n种元素（每种无限供应）的多重集中选取r个的组合数为 C(n+r−1, r)，相当于求解 x₁+x₂+...+xₙ=r 的非负整数解个数。</p>" },
+                { id: "binomial", name: "二项式定理", detail: "<p><strong>二项式定理</strong>给出了(x+y)ⁿ的展开公式：</p><p>(x+y)ⁿ = Σ_{k=0}^{n} C(n,k)·x^{n−k}·y^{k}</p><p>其中 C(n,k)=n!/(k!(n−k)!) 是二项式系数。</p><p>重要推论：令 x=y=1 得 ΣC(n,k)=2ⁿ；令 x=1,y=−1 得 Σ(−1)ᵏC(n,k)=0。</p>" },
+                { id: "multinomial", name: "多项式定理", detail: "<p><strong>多项式定理</strong>将二项式定理推广到多项：</p><p>(x₁+x₂+...+xₘ)ⁿ = Σ(n!/(k₁!k₂!...kₘ!))·x₁^{k₁}x₂^{k₂}...xₘ^{kₘ}，求和满足 k₁+...+kₘ=n。</p><p>系数 n!/(k₁!k₂!...kₘ!) 称为多项式系数。</p>" },
+                { id: "inclusion", name: "容斥原理", detail: "<p><strong>容斥原理</strong>用于计算多个集合的并集元素个数：</p><p>|A₁∪A₂| = |A₁|+|A₂|−|A₁∩A₂|</p><p>|A₁∪A₂∪A₃| = |A₁|+|A₂|+|A₃| − |A₁∩A₂|−|A₁∩A₃|−|A₂∩A₃| + |A₁∩A₂∩A₃|</p><p>推广到n个集合时，先加所有单集，减所有二交，加所有三交，交替进行。</p>" },
+            ]
+        },
+        {
+            id: "ch8", name: "高级计数",
+            color: "#f59e0b", detail: "递推关系、生成函数等高级计数方法",
+            children: [
+                { id: "recurrence", name: "递推关系", detail: "<p><strong>递推关系</strong>是用数列前面的项定义后面项的等式。如斐波那契数列：Fₙ=Fₙ₋₁+Fₙ₋₂（n≥2），初始条件F₀=0，F₁=1。</p><p>一个递推关系加上初始条件才能唯一确定数列。</p>" },
+                { id: "linear-homo", name: "齐次递推", detail: "<p><strong>线性齐次递推关系</strong>形如 aₙ=c₁aₙ₋₁+c₂aₙ₋₂+...+cₖaₙ₋ₖ。</p><p>解法（特征根法）：</p><p>①写出特征方程 rᵏ−c₁r^{k−1}−...−cₖ=0</p><p>②求出特征根</p><p>③通解 aₙ=α₁r₁ⁿ+α₂r₂ⁿ+...+αₖrₖⁿ</p><p>④代入初始条件求系数</p>" },
+                { id: "linear-nonhomo", name: "非齐次递推", detail: "<p><strong>线性非齐次递推关系</strong>形如 aₙ=c₁aₙ₋₁+...+cₖaₙ₋ₖ+f(n)，其中 f(n)≠0。</p><p>通解 = 对应齐次通解 + 一个特解。</p><p>求特解时，根据 f(n) 的形式假设特解形式，代回确定系数。</p>" },
+                { id: "gen-func", name: "生成函数", detail: "<p><strong>生成函数</strong>将数列 {aₙ} 表示为幂级数 G(x)=Σ_{n≥0} aₙxⁿ。</p><p>常见生成函数：1/(1−x)=Σxⁿ，1/(1−ax)=Σaⁿxⁿ。</p><p>通过生成函数的代数运算可以方便地研究数列的性质。</p>" },
+                { id: "gf-recur", name: "生成函数解递推", detail: "<p>用生成函数求解递推关系的步骤：</p><p>①将递推关系转化为关于 G(x) 的方程</p><p>②求解出 G(x) 的封闭形式</p><p>③将 G(x) 展开为幂级数，读出系数 aₙ</p>" },
+                { id: "catalan", name: "卡特兰数", detail: "<p><strong>卡特兰数</strong>：Cₙ=(2n)!/(n!(n+1)!)=C(2n,n)/(n+1)</p><p>前几项：1,1,2,5,14,42,132,429...</p><p>应用：n对括号合法匹配数、n个元素出栈序列数、n个节点二叉搜索树形态数等。</p><p>递推关系：C₀=1，C_{n+1}=ΣCᵢC_{n−i}。</p>" },
+            ]
+        },
+        {
+            id: "ch9", name: "关系",
+            color: "#ef4444", detail: "研究元素之间的联系",
+            children: [
+                { id: "relation-basic", name: "关系及其表示", detail: "<p><strong>关系</strong>是描述元素之间联系的工具。A到B的二元关系是A×B的子集，R⊆A×B。如果(a,b)∈R，称a与b有关系R，记作aRb。</p><p><strong>笛卡尔积</strong>：A×B={(a,b)|a∈A,b∈B}。</p>" },
+                { id: "rel-matrix", name: "关系矩阵与图", detail: "<p><strong>关系矩阵</strong>：用m×n的布尔矩阵M_R表示关系，M_R[i][j]=1当且仅当aᵢRbⱼ。</p><p><strong>关系图</strong>：用有向图表示集合上的关系，顶点为元素，aRb则有从a到b的有向边。</p>" },
+                { id: "rel-op", name: "关系的运算", detail: "<p>关系可以进行多种运算：</p><ul><li><strong>复合</strong>：R∘S={(a,c)|∃b使aRb且bSc}</li><li><strong>逆</strong>：R⁻¹={(b,a)|aRb}</li><li><strong>幂</strong>：Rⁿ=R∘R∘...∘R（n次复合）</li></ul>" },
+                { id: "rel-props", name: "关系的性质", detail: "<p>二元关系的四种基本性质：</p><ul><li><strong>自反</strong>：∀a∈A，aRa</li><li><strong>对称</strong>：aRb ⇒ bRa</li><li><strong>反对称</strong>：aRb且bRa ⇒ a=b</li><li><strong>传递</strong>：aRb且bRc ⇒ aRc</li></ul>" },
+                { id: "equivalence-rel", name: "等价关系", detail: "<p><strong>等价关系</strong>同时具有自反性、对称性和传递性。</p><p>等价关系将集合划分为互不相交的<strong>等价类</strong>。[a]={x∈A|xRa}。</p><p>等价关系和集合的划分一一对应。</p>" },
+                { id: "partial-order", name: "偏序关系", detail: "<p><strong>偏序关系</strong>同时具有自反性、反对称性和传递性，记作 ≤。</p><p>偏序集(A,≤)可用<strong>Hasse图</strong>表示：省略自环和传递边，只画覆盖关系。</p><p>相关概念：最大元、最小元、极大元、极小元、上界、下界。</p>" },
+                { id: "closure", name: "关系闭包", detail: "<p><strong>关系闭包</strong>是在原关系上添加最少有序对使其具有某种性质：</p><ul><li>自反闭包：R∪I_A</li><li>对称闭包：R∪R⁻¹</li><li>传递闭包：R*=∪_{i≥1}Rⁱ</li></ul><p><strong>Warshall算法</strong>用动态规划高效计算传递闭包。</p>" },
+            ]
+        }
+    ];
+
+    const expanded = {};
+    const MASTERY_KEY = 'jft_mastery';
+
+    function loadMastery() {
+        const raw = localStorage.getItem(MASTERY_KEY);
+        if (raw) return JSON.parse(raw);
+        const m = {};
+        chapters.forEach(ch => { m[ch.id] = 0.3; ch.children.forEach(c => { m[c.id] = 0.3; }); });
+        return m;
+    }
+
+    let simulation, svg, g, linkGroup, nodeGroup;
+
+    function buildGraphData() {
+        const nodes = [], links = [];
+        const mastery = loadMastery();
+        chapters.forEach(ch => {
+            const chNode = { ...ch, level: 0, r: 240, isChapter: true, mastery: mastery[ch.id] || 0.3 };
+            nodes.push(chNode);
+            if (expanded[ch.id]) {
+                ch.children.forEach(child => {
+                    const childNode = {
+                        ...child, category: ch.name, color: ch.color,
+                        isChapter: false, parentId: ch.id,
+                        r: 176, mastery: mastery[child.id] || 0.3
+                    };
+                    nodes.push(childNode);
+                    links.push({ source: ch.id, target: child.id, type: 'contains' });
+                });
+            }
+        });
+        return { nodes, links };
+    }
+
+    function openNodeDetail(nodeData){
+    document.getElementById('nodeDetailModal').classList.add('open');
+    document.getElementById('modalBackdrop').classList.add('open');
+    document.getElementById('ndTitle').textContent = nodeData.name;
+    document.getElementById('ndDetail').innerHTML = nodeData.detail;
+    const header = document.getElementById('ndHeader');
+    header.style.background = nodeData.color || 'var(--primary, #6366f1)';
+    const mc = getMC(nodeData.mastery);
+    document.getElementById('ndMastery').textContent = getML(nodeData.mastery);
+    document.getElementById('ndMastery').style.background = mc;
+    document.getElementById('ndMastery').style.color = '#fff';
+    if (typeof MathJax !== 'undefined' && MathJax.typesetPromise) {
+        MathJax.typesetPromise([document.getElementById('ndDetail')]);
+    }
+}
+
+    function closeNodeDetail() {
+        document.getElementById('nodeDetailModal').classList.remove('open');
+        document.getElementById('modalBackdrop').classList.remove('open');
+    }
+
+    function initKnowledgeGraph() {
+        const container = document.getElementById('knowledge-graph');
+        if (!container) return;
+        const parent = document.getElementById('knowledge-graph-container');
+        const width = parent.clientWidth;
+        const height = parent.clientHeight;
+
+        document.getElementById('loading-spinner').style.display = 'none';
+        d3.select('#knowledge-graph').selectAll('*').remove();
+
+        svg = d3.select('#knowledge-graph')
+            .append('svg')
+            .attr('width', '100%')
+            .attr('height', '100%')
+            .attr('viewBox', [0, 0, width, height])
+            .attr('preserveAspectRatio', 'xMidYMid meet')
+            .style('min-height', height + 'px');
+
+        const defs = svg.append('defs');
+        defs.append('pattern').attr('id','grid').attr('width',30).attr('height',30).attr('patternUnits','userSpaceOnUse')
+            .append('path').attr('d','M30 0L0 0 0 30').attr('fill','none').attr('stroke','#e2e8f0').attr('stroke-width',0.5);
+        svg.append('rect').attr('width','100%').attr('height','100%').attr('fill','url(#grid)');
+
+        g = svg.append('g');
+        linkGroup = g.append('g');
+        nodeGroup = g.append('g');
+
+        const zoom = d3.zoom()
+            .scaleExtent([0.25, 2])
+            .filter(event => {
+                if (event.type === 'mousedown' && event.button === 0) return true;
+                if (event.type === 'wheel') return event.ctrlKey;
+                return event.type.startsWith('touch');
+            })
+            .on('zoom', event => { g.attr('transform', event.transform); });
+
+        svg.call(zoom);
+        requestAnimationFrame(() => {
+            svg.call(zoom.transform, d3.zoomIdentity.translate(width/2, height/2).scale(0.55));
+        });
+
+        renderGraph();
+    }
+
+    function renderGraph() {
+        const { nodes, links } = buildGraphData();
+        const tooltip = d3.select('#tooltip');
+
+        const legendEl = document.getElementById('graph-legend');
+        legendEl.innerHTML = '';
+        chapters.forEach(ch => {
+            const item = document.createElement('div');
+            item.className = 'legend-item';
+            item.innerHTML = `<span class="legend-dot" style="background:${ch.color}"></span>${ch.name}${expanded[ch.id] ? ' ▼' : ' ▶'}`;
+            legendEl.appendChild(item);
+        });
+
+        const link = linkGroup.selectAll('line').data(links, d => d.source.id + '-' + d.target.id);
+        link.exit().transition().duration(200).style('stroke-opacity',0).remove();
+        const linkEnter = link.enter().append('line')
+            .style('stroke','#94a3b8').style('stroke-width',6).style('stroke-opacity',0);
+        const linkMerge = linkEnter.merge(link);
+
+        const node = nodeGroup.selectAll('g.node').data(nodes, d => d.id);
+        node.exit().transition().duration(200).style('opacity',0).remove();
+
+        const nodeEnter = node.enter().append('g').attr('class','node').style('cursor','pointer').style('opacity',0)
+            .call(d3.drag()
+                .on('start',(e,d)=>{if(!e.active)simulation.alphaTarget(0.3).restart();d.fx=d.x;d.fy=d.y;})
+                .on('drag',(e,d)=>{d.fx=e.x;d.fy=e.y;})
+                .on('end',(e,d)=>{if(!e.active)simulation.alphaTarget(0);d.fx=d.x;d.fy=d.y;}));
+
+        nodeEnter.filter(d=>d.isChapter).append('circle').attr('class','glow')
+            .attr('r',d=>d.r+24).style('fill',d=>d.color).style('opacity',0.08);
+
+        nodeEnter.append('circle').attr('class','main-circle')
+            .attr('r',d=>d.r)
+            .style('fill',d=>d.isChapter ? d.color : '#fff')
+            .style('stroke',d=>d.isChapter ? 'none' : (d.color || '#94a3b8'))
+            .style('stroke-width',d=>d.isChapter ? 0 : 8)
+            .style('filter',d=>d.isChapter ? 'drop-shadow(0 6px 20px rgba(0,0,0,0.25))' : 'none')
+            .on('click',(e,d)=>{
+                if(d.isChapter){ expanded[d.id]=!expanded[d.id]; renderGraph(); }
+                else { openNodeDetail(d); }
+            })
+            .on('mouseover',function(e,d){
+                d3.select(this).transition().duration(150).attr('r',d.r+10);
+                tooltip.style('opacity',1).html(`
+                    <div class="tt-title">${d.name}</div>
+                    <div class="tt-detail">${d.detail}</div>
+                    <div class="tt-mastery" style="background:${getMC(d.mastery)}">${getML(d.mastery)}</div>
+                    ${d.isChapter?'<div style="font-size:11px;color:#94a3b8;margin-top:4px">点击展开/收起</div>':'<div style="font-size:11px;color:#94a3b8;margin-top:4px">点击查看详情</div>'}
+                `);
+                const [mx,my]=d3.pointer(e,document.getElementById('knowledge-graph-container'));
+                tooltip.style('left',(mx+15)+'px').style('top',(my-10)+'px');
+            })
+            .on('mousemove',function(e){
+                const [mx,my]=d3.pointer(e,document.getElementById('knowledge-graph-container'));
+                tooltip.style('left',(mx+15)+'px').style('top',(my-10)+'px');
+            })
+            .on('mouseout',function(e,d){
+                d3.select(this).transition().duration(150).attr('r',d.r);
+                tooltip.style('opacity',0);
+            });
+
+        nodeEnter.filter(d=>d.isChapter).append('text')
+            .attr('dy','0.35em').attr('text-anchor','middle')
+            .style('font-size','56px').style('font-weight','800').style('fill','#fff').style('pointer-events','none')
+            .text(d=>d.name);
+
+        nodeEnter.filter(d=>!d.isChapter).append('text')
+            .attr('dy','0.35em').attr('text-anchor','middle')
+            .style('font-size','64px').style('font-weight','700')
+            .style('fill',d=>d.color || '#475569').style('pointer-events','none')
+            .text(d=>d.name);
+
+        const nodeMerge = nodeEnter.merge(node);
+
+        if (simulation) simulation.stop();
+        simulation = d3.forceSimulation(nodes)
+            .alphaDecay(0.015).velocityDecay(0.2)
+            .force('link', d3.forceLink(links).id(d=>d.id).distance(350).strength(0.08))
+            .force('charge', d3.forceManyBody().strength(-2000).distanceMax(1000))
+            .force('center', d3.forceCenter(0,0).strength(0.008))
+            .force('collision', d3.forceCollide().radius(d=>d.r+30).strength(0.95))
+            .force('x', d3.forceX().x(d=>{
+                if(d.isChapter){
+                    const idx=chapters.findIndex(ch=>ch.id===d.id);
+                    return (idx/(chapters.length-1)-0.5)*1000;
+                }
+                return 0;
+            }).strength(d=>d.isChapter?0.15:0.01))
+            .on('tick',()=>{
+                linkMerge.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y)
+                    .attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);
+                nodeMerge.attr('transform',d=>`translate(${d.x},${d.y})`);
+            });
+
+        nodeEnter.transition().duration(300).style('opacity',1);
+        linkEnter.transition().duration(300).style('stroke-opacity',0.5);
+
+        document.getElementById('clickHint').textContent =
+            Object.values(expanded).some(v=>v) ? '点击章节收起' : '点击章节展开';
+    }
+
+    function getMC(v){return v<0.35?'#dc2626':v<0.6?'#f59e0b':'#16a34a';}
+    function getML(v){return v<0.35?'红待加强':v<0.6?'黄一般':v<0.85?'绿良好':'已掌握';}
+
+    document.getElementById('ndCloseBtn').addEventListener('click', closeNodeDetail);
+    document.getElementById('modalBackdrop').addEventListener('click', closeNodeDetail);
+    document.addEventListener('keydown', e => { if(e.key === 'Escape') closeNodeDetail(); });
+
+    document.addEventListener('DOMContentLoaded',()=>{setTimeout(initKnowledgeGraph,100);});
+    </script>
+</body>
+</html>
