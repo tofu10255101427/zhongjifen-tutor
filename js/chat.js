@@ -4,6 +4,32 @@
 const PROFILE_KEY = 'jft_profile';
 
 // 离散数学知识点扁平列表（替代被删除的 knowledge-map.js）
+const MASTERY_KEY = 'jft_mastery';
+
+function loadMastery() {
+    const raw = localStorage.getItem(MASTERY_KEY);
+    if (raw) {
+        try { return JSON.parse(raw); }
+        catch(e) {}
+    }
+    var m = {};
+    for (var i = 0; i < ALL_KNOWLEDGE_FLAT.length; i++) {
+        m[ALL_KNOWLEDGE_FLAT[i].id] = 0.3;
+    }
+    return m;
+}
+
+function saveMastery(m) {
+    localStorage.setItem(MASTERY_KEY, JSON.stringify(m));
+}
+
+function findNode(id) {
+    for (var i = 0; i < ALL_KNOWLEDGE_FLAT.length; i++) {
+        if (ALL_KNOWLEDGE_FLAT[i].id === id) return ALL_KNOWLEDGE_FLAT[i];
+    }
+    return null;
+}
+
 var ALL_KNOWLEDGE_FLAT = [
   {id:'ch1',title:'命题逻辑',desc:'研究命题与推理的形式化工具'},
   {id:'proposition',title:'命题',desc:'能判断真假的陈述句'},
@@ -194,6 +220,9 @@ async function sendMessage() {
         if (m) m.classList.remove('hidden');
         return;
     }
+    // 检测用户偏好声明
+    detectUserPreference(text);
+
     renderMessage('user', text);
     input.value = '';
     input.style.height = 'auto';
@@ -273,6 +302,68 @@ function init() {
         });
     }
     renderProfile();
+}
+
+function detectUserPreference(text) {
+    var profile = loadProfile();
+    var changed = false;
+
+    // 1. 检测偏好声明
+    var prefPatterns = [
+        { re: /我的学习风格(?:是|为|：|:)\s*(.+)/, key: '学习风格' },
+        { re: /我喜欢(.+)/, key: '偏好的讲解方式' },
+        { re: /我不喜欢(.+)/, key: '偏好的讲解方式', prefix: '避免' },
+        { re: /我希望你(.+)/, key: '偏好的讲解方式' },
+    ];
+    for (var i = 0; i < prefPatterns.length; i++) {
+        var m = text.match(prefPatterns[i].re);
+        if (m) {
+            var val = prefPatterns[i].prefix ? prefPatterns[i].prefix + m[1].trim() : m[1].trim();
+            if (profile[prefPatterns[i].key] !== val) {
+                profile[prefPatterns[i].key] = val;
+                changed = true;
+            }
+        }
+    }
+
+    // 2. 检测薄弱知识点声明
+    var weakPatterns = [
+        /我(?:不|没)(?:懂|理解|明白|会)(.+)/,
+        /(.+)好难/,
+        /(.+)太难(?:了)?/,
+        /搞不懂(.+)/,
+        /不太会(.+)/,
+        /(.+)不太懂/,
+        /(.+)不会/,
+    ];
+    for (var j = 0; j < weakPatterns.length; j++) {
+        var wm = text.match(weakPatterns[j]);
+        if (wm) {
+            var matchedText = wm[1].trim();
+            // 在 ALL_KNOWLEDGE_FLAT 里找匹配的知识点
+            for (var k = 0; k < ALL_KNOWLEDGE_FLAT.length; k++) {
+                var node = ALL_KNOWLEDGE_FLAT[k];
+                if (matchedText.indexOf(node.title) !== -1 || matchedText.indexOf(node.desc.slice(0, 6)) !== -1) {
+                    var mastery = loadMastery();
+                    if (mastery[node.id] !== undefined) {
+                        mastery[node.id] = Math.max(0, mastery[node.id] - 0.15);
+                        saveMastery(mastery);
+                        // 更新薄弱点列表
+                        if (profile.薄弱点.indexOf(node.title) === -1) {
+                            profile.薄弱点.push(node.title);
+                        }
+                        changed = true;
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    if (changed) {
+        saveProfile(profile);
+        renderProfile();
+    }
 }
 
 if (document.readyState === 'loading') {
