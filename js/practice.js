@@ -38,7 +38,7 @@ var ALL_KNOWLEDGE_FLAT = [];
 
 // 掌握度存储
 function loadMastery() {
-    var raw = localStorage.getItem('ds_mastery_v1');
+    var raw = localStorage.getItem('jft_mastery');
     if (raw) {
         try { return JSON.parse(raw); }
         catch(e) {}
@@ -51,7 +51,7 @@ function loadMastery() {
 }
 
 function saveMastery(m) {
-    localStorage.setItem('ds_mastery_v1', JSON.stringify(m));
+    localStorage.setItem('jft_mastery', JSON.stringify(m));
 }
 
 // 标签 → 中文名映射
